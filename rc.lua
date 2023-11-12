@@ -5,6 +5,8 @@ pcall(require, "luarocks.loader")
 -- Standard awesome library
 local gears = require("gears")
 local awful = require("awful")
+-- Custom libs
+-- local testlua = require ("testlua")
 require("awful.autofocus")
 -- Widget and layout library
 local wibox = require("wibox")
@@ -107,157 +109,17 @@ mytextclock = wibox.widget.textclock()
 local month_calendar = awful.widget.calendar_popup.month()
 month_calendar:attach(mytextclock, 'tr')
 
--- Create volume widget
+-- Volume
+local volume_widget = require("widgets.volume_widget")
 
--- local volume_text = wibox.widget.textbox()
--- volume_level:set_text(volume_level)
-
-volume = wibox.widget {
-    max_value     = 100,
-    ticks         = true,
-    ticks_size    = 4,
-    ticks_gap     = 1,
-    forced_width  = 50,
-    shape         = gears.shape.rounded_bar,
-    -- border_width  = 2,
-    -- border_color  = "#000000",
-    color         = "#B0FC38",
-    background_color = "#3CB043",
-    widget        = wibox.widget.progressbar,
-}
-
-local volume_icon = wibox.widget({
-	image = "/home/volchara/.config/awesome/icons/audio.svg",
-	resize = true,
-	widget = wibox.widget.imagebox,
-})
-
-local volume_container = {
-    {
-        {
-            {
-                {
-                    {
-                        {
-                            {
-                                widget = volume_icon,
-                            },
-                            valign = 'center',
-                            layout = wibox.container.place
-                        },
-                        top = 1,
-                        bottom = 1,
-                        widget = wibox.container.margin
-                    },
-                    {
-                        {
-                            {
-                                widget = volume,
-                            },
-                            height = 8,
-                            widget = wibox.container.constraint
-                        },
-                        halign = "center",
-                        widget = wibox.container.place,
-                    },
-                    spacing = 2,
-                    layout = wibox.layout.fixed.horizontal,
-                },
-                left = 4,
-                right = 4,
-                widget = wibox.container.margin,
-            },
-            shape = gears.shape.rounded_bar,
-            fg = "#f38ba8",
-            bg = "#3c3c3c",
-            widget = wibox.container.background,
-        },
-        height = 16,
-        widget = wibox.container.constraint,
-    },
-    halign = "center",
-    widget = wibox.container.place,
-}
-
-local volume_widget_press = function(lx, ly, button, mods, find_widgets_result)
-    awful.util.spawn("pavucontrol")
-end
-
-volume:connect_signal("button::press", volume_widget_press)
-
-awful.widget.watch('bash -c "amixer sget Master | grep -P -o -m 1 \'\\d{3}%|\\d{2}%|\\d{1}%\' | tr -d \\%"', 1,
+awful.widget.watch('bash -c "amixer sget Master | grep -P -o -m 1 \'\\d{3}%|\\d{2}%|\\d{1}%\' | tr -d \\%"', 60,
     function(widget, stdout)
         local vol = stdout
         volume.value = tonumber(vol)
     end)
 
--- Brightness widget
-local brightness = wibox.widget {
-    max_value     = 255,
-    ticks         = true,
-    ticks_size    = 4,
-    ticks_gap     = 1,
-    forced_width  = 50,
-    shape         = gears.shape.rounded_bar,
-    -- border_width  = 2,
-    -- border_color  = "#000000",
-    color         = "#B0FC38",
-    background_color = "#3CB043",
-    widget        = wibox.widget.progressbar,
-}
-
-local brightness_icon = wibox.widget({
-	image = "/home/volchara/.config/awesome/icons/brightness.svg",
-	resize = true,
-	widget = wibox.widget.imagebox,
-})
-
-local brightness_container = {
-    {
-        {
-            {
-                {
-                    {
-                        {
-                            {
-                                widget = brightness_icon,
-                            },
-                            valign = 'center',
-                            layout = wibox.container.place
-                        },
-                        top = 1,
-                        bottom = 1,
-                        widget = wibox.container.margin
-                    },
-                    {
-                        {
-                            {
-                                widget = brightness,
-                            },
-                            height = 8,
-                            widget = wibox.container.constraint
-                        },
-                        halign = "center",
-                        widget = wibox.container.place,
-                    },
-                    spacing = 2,
-                    layout = wibox.layout.fixed.horizontal,
-                },
-                left = 4,
-                right = 4,
-                widget = wibox.container.margin,
-            },
-            shape = gears.shape.rounded_bar,
-            fg = "#f38ba8",
-            bg = "#3c3c3c",
-            widget = wibox.container.background,
-        },
-        height = 16,
-        widget = wibox.container.constraint,
-    },
-    halign = "center",
-    widget = wibox.container.place,
-}
+-- Brightness
+local brightness_widget = require("widgets.brightness_widget")
 
 awful.spawn.easy_async_with_shell("brightnessctl get", function(out)
     brightness.value = tonumber(out)
@@ -398,7 +260,7 @@ awful.screen.connect_for_each_screen(function(s)
     set_wallpaper(s)
 
     -- Each screen has its own tag table.
-    awful.tag({"web", "main", "file", "note", "dev", "chat", "sys", "game", 'aaaaaaa',}, s, awful.layout.layouts[1])
+    awful.tag({"web", "main", "file", "note", "dev", "chat", "sys", "game"}, s, awful.layout.layouts[1])
 
     -- Create a promptbox for each screen
     s.mypromptbox = awful.widget.prompt()
@@ -515,10 +377,11 @@ awful.screen.connect_for_each_screen(function(s)
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
             spacing = 4,
+            geo,
             mykeyboardlayout,
             battery_container,
-            brightness_container,
-            volume_container,
+            brightness_widget,
+            volume_widget,
             wibox.widget.systray(),
             mytextclock,
             s.mylayoutbox,
@@ -958,3 +821,83 @@ end
 beautiful = require("beautiful")
 beautiful.gap_single_client   = false
 
+-- Convert a lua table into a lua syntactically correct string
+function table_to_string(tbl)
+    local t = {}
+    local result = "{"
+    for k, v in pairs(tbl) do
+        -- Check the key type (ignore any numerical keys - assume its an array)
+        if type(k) == "string" then
+            result = result.."[\""..k.."\"]".."="
+        end
+
+        -- Check the value type
+        if type(v) == "table" then
+            result = result..table_to_string(v)
+        elseif type(v) == "boolean" then
+            result = result..tostring(v)
+        else
+            result = result.."\""..v.."\""
+        end
+        result = result..","
+    end
+    -- Remove leading commas from the result
+    if result ~= "" then
+        result = result:sub(1, result:len()-1)
+    end
+    return result.."}"
+end
+
+function serialize1 (o)
+    file = io.open("testfile", "w")
+    file:write("string")
+    if type(o) == "number" then
+        file:write(o)
+    elseif type(o) == "string" then
+        file:write(string.format("%q", o))
+    elseif type(o) == "table" then
+        file:write("{\n")
+        for k,v in pairs(o) do
+            if type(k) == "function" or type(v) == "function" or type(v) == "table" then
+                goto skipfun
+            end
+            file:write("  ", k, " = ")
+            serialize(v)
+            file:write(",\n")
+            ::skipfun::
+        end
+        file:write("}\n")
+    else
+        goto continue
+      -- error("cannot serialize a " .. type(o))
+    end
+    ::continue::
+    file:close()
+end
+
+function serialize(table, depth, file)
+	tab = string.rep("\t", depth - 1)
+	file:write(tab .. "\n{")
+	for key, value in pairs(table) do
+		if type(value) == "table" then
+			serialize(value, depth + 1)
+		elseif type(value) == "function" or type(key) == "function" then
+			file:write(tab .. "\n\t" .. "fun name" .. " = " .. "some function")
+        elseif type(value) == "boolean" then
+            file:write(tab .. "\n\t" .. key .. " = " .. tostring(value))
+        elseif type(value) == "userdata" then
+            goto continue
+		else
+			file:write(tab .. "\n\t" .. key .. " = " .. tostring(value))
+		end
+        ::continue::
+	end
+	file.write(tab .. "\n}")
+end
+
+function table_to_file(table)
+    file = io.open("testfile", "w+")
+    -- io.output(file)
+    serialize(table, 1, file)
+    file.close(file) 
+end
