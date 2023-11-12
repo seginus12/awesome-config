@@ -125,79 +125,29 @@ awful.spawn.easy_async_with_shell("brightnessctl get", function(out)
     brightness.value = tonumber(out)
 end)
 
--- Battery widget
-battery = wibox.widget {
-    max_value     = 100,
-    ticks         = true,
-    ticks_size    = 4,
-    ticks_gap     = 1,
-    forced_width  = 50,
-    shape         = gears.shape.rounded_bar,
-    -- border_width  = 2,
-    -- border_color  = "#000000",
-    color         = "#B0FC38",
-    background_color = "#3CB043",
-    widget        = wibox.widget.progressbar,
-}
-
-local battery_icon = wibox.widget({
-	image = "/home/volchara/.config/awesome/icons/battery.svg",
-	resize = true,
-	widget = wibox.widget.imagebox,
-})
-
-local battery_container = {
-    {
-        {
-            {
-                {
-                    {
-                        {
-                            {
-                                widget = battery_icon,
-                            },
-                            valign = 'center',
-                            layout = wibox.container.place
-                        },
-                        top = 1,
-                        bottom = 1,
-                        widget = wibox.container.margin
-                    },
-                    {
-                        {
-                            {
-                                widget = battery,
-                            },
-                            height = 8,
-                            widget = wibox.container.constraint
-                        },
-                        halign = "center",
-                        widget = wibox.container.place,
-                    },
-                    spacing = 2,
-                    layout = wibox.layout.fixed.horizontal,
-                },
-                left = 4,
-                right = 4,
-                widget = wibox.container.margin,
-            },
-            shape = gears.shape.rounded_bar,
-            fg = "#f38ba8",
-            bg = "#3c3c3c",
-            widget = wibox.container.background,
-        },
-        height = 16,
-        widget = wibox.container.constraint,
-    },
-    halign = "center",
-    widget = wibox.container.place,
-}
+-- Battery
+local battery_widget = require("widgets.battery_widget")
 
 awful.widget.watch('bash -c "acpi --battery | grep -o -P \'\\d{3}%|\\d{2}%|\\d{1}%\' | tr -d /%"', 30,
     function(widget, stdout)
         local vol = stdout
         battery.value = tonumber(vol)
     end)
+
+-- Keyboard layout
+local keyboard_layouts_widget = require("widgets.keyboard_layout_widget")
+local keyboard_layouts_table = {['us'] = "EN", ['ru'] = "RU"} 
+
+local function change_layout()
+    awful.spawn.easy_async_with_shell("xkblayout-state print '%s'", function(out)
+        if string.find(out, 'ru') then
+            keyboard_layouts_widget.text = "RU"
+        else
+            keyboard_layouts_widget.text = "EN"
+        end
+    end)
+end
+
 
     
 -- Create a wibox for each screen and add it
@@ -377,9 +327,9 @@ awful.screen.connect_for_each_screen(function(s)
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
             spacing = 4,
-            geo,
-            mykeyboardlayout,
-            battery_container,
+            -- mykeyboardlayout,
+            keyboard_layouts_widget,
+            battery_widget,
             brightness_widget,
             volume_widget,
             wibox.widget.systray(),
@@ -551,8 +501,11 @@ globalkeys = gears.table.join(
                 {description = "Launch telegram"}),
     awful.key({ modkey }, "d", function () 
         awful.util.spawn("discord") end,
-                {description = "Launch telegram"})
-                          
+                {description = "Launch discord"}),
+    
+    -- Change keyboard_layout
+    awful.key({}, "ISO_Next_Group", function () 
+        change_layout() end)                       
 )
 
 clientkeys = gears.table.join(
